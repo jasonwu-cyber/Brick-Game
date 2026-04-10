@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Python Vibe Coding - 網頁打磚塊</title>
+    <style>
+        /* CSS 樣式：設定外觀與版面 */
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #222;
+            color: white;
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+        }
+
+        canvas {
+            border: 5px solid #444;
+            background-color: #000;
+            box-shadow: 0 0 20px rgba(0,0,0,0.5);
+            cursor: none; /* 隱藏滑鼠指針，用球拍代替 */
+        }
+
+        #ui {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            text-align: center;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="ui">
+        <h2 id="msg">滑鼠移動開始遊戲</h2>
+        <p>分數: <span id="score">0</span></p>
+    </div>
+
+    <!-- 遊戲畫布 -->
+    <canvas id="gameCanvas"></canvas>
+
+    <script>
+        /**
+         * 網頁版打磚塊邏輯 (Vibe Coding 指導版)
+         */
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+        const scoreEl = document.getElementById("score");
+        const msgEl = document.getElementById("msg");
+
+        // 畫布大小設定
+        canvas.width = 800;
+        canvas.height = 600;
+
+        // 遊戲參數
+        let score = 0;
+        let gameOver = false;
+        const colors = ["#ff5050", "#5050ff", "#50ff50", "#ffff50", "#ff50ff"];
+
+        // 1. 球拍設定
+        const paddle = {
+            width: 120,
+            height: 15,
+            x: canvas.width / 2 - 60,
+            y: canvas.height - 40,
+            color: "#5050ff"
+        };
+
+        // 2. 球設定
+        const ball = {
+            x: canvas.width / 2,
+            y: canvas.height - 100,
+            radius: 10,
+            dx: 5 * (Math.random() > 0.5 ? 1 : -1),
+            dy: -5,
+            color: "#ffffff"
+        };
+
+        // 3. 磚塊設定
+        const brickRowCount = 5;
+        const brickColumnCount = 9;
+        const brickWidth = 75;
+        const brickHeight = 25;
+        const brickPadding = 10;
+        const brickOffsetTop = 60;
+        const brickOffsetLeft = 25;
+        const bricks = [];
+
+        for (let c = 0; c < brickColumnCount; c++) {
+            bricks[c] = [];
+            for (let r = 0; r < brickRowCount; r++) {
+                bricks[c][r] = { x: 0, y: 0, status: 1, color: colors[r] };
+            }
+        }
+
+        // 4. 寶物設定
+        const powerUps = [];
+
+        // 監聽滑鼠移動
+        document.addEventListener("mousemove", (e) => {
+            const relativeX = e.clientX - canvas.offsetLeft;
+            if (relativeX > 0 && relativeX < canvas.width) {
+                paddle.x = relativeX - paddle.width / 2;
+            }
+        });
+
+        // 碰撞偵測邏輯
+        function collisionDetection() {
+            for (let c = 0; c < brickColumnCount; c++) {
+                for (let r = 0; r < brickRowCount; r++) {
+                    let b = bricks[c][r];
+                    if (b.status === 1) {
+                        // 檢查球是否進入磚塊範圍
+                        if (ball.x > b.x && ball.x < b.x + brickWidth && ball.y > b.y && ball.y < b.y + brickHeight) {
+                            ball.dy = -ball.dy;
+                            b.status = 0;
+                            score += 10;
+                            scoreEl.innerText = score;
+
+                            // 20% 機率掉寶物
+                            if (Math.random() < 0.2) {
+                                powerUps.push({
+                                    x: b.x + brickWidth / 2,
+                                    y: b.y + brickHeight / 2,
+                                    width: 15,
+                                    height: 15,
+                                    active: true
+                                });
+                            }
+
+                            // 檢查是否全破
+                            if (score === brickRowCount * brickColumnCount * 10) {
+                                msgEl.innerText = "太強了！你贏了！重新整理即可再玩。";
+                                gameOver = true;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // 繪製函數
+        function drawBall() {
+            ctx.beginPath();
+            ctx.arc(ball.x, ball.y, ball.radius, 0, Math.PI * 2);
+            ctx.fillStyle = ball.color;
+            ctx.fill();
+            ctx.closePath();
+        }
+
+        function drawPaddle() {
+            ctx.beginPath();
+            ctx.rect(paddle.x, paddle.y, paddle.width, paddle.height);
+            ctx.fillStyle = paddle.color;
+            ctx.fill();
+            ctx.closePath();
+        }
+
+        function drawBricks() {
+            for (let c = 0; c < brickColumnCount; c++) {
+                for (let r = 0; r < brickRowCount; r++) {
+                    if (bricks[c][r].status === 1) {
+                        const brickX = c * (brickWidth + brickPadding) + brickOffsetLeft;
+                        const brickY = r * (brickHeight + brickPadding) + brickOffsetTop;
+                        bricks[c][r].x = brickX;
+                        bricks[c][r].y = brickY;
+                        ctx.beginPath();
+                        ctx.rect(brickX, brickY, brickWidth, brickHeight);
+                        ctx.fillStyle = bricks[c][r].color;
+                        ctx.fill();
+                        ctx.strokeStyle = "#fff";
+                        ctx.strokeRect(brickX, brickY, brickWidth, brickHeight);
+                        ctx.closePath();
+                    }
+                }
+            }
+        }
+
+        function drawPowerUps() {
+            powerUps.forEach((pu, index) => {
+                if (pu.active) {
+                    ctx.beginPath();
+                    ctx.arc(pu.x, pu.y, 8, 0, Math.PI * 2);
+                    ctx.fillStyle = "#ffff00";
+                    ctx.fill();
+                    ctx.closePath();
+
+                    // 寶物向下掉落
+                    pu.y += 3;
+
+                    // 碰撞球拍
+                    if (pu.y + 8 > paddle.y && pu.x > paddle.x && pu.x < paddle.x + paddle.width) {
+                        paddle.width += 20; // 吃到寶物球拍變長
+                        pu.active = false;
+                        setTimeout(() => { paddle.width -= 20; }, 5000); // 5秒後縮回
+                    }
+                }
+            });
+        }
+
+        // 遊戲主循環
+        function draw() {
+            if (gameOver) return;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height); // 清空畫布
+
+            drawBricks();
+            drawBall();
+            drawPaddle();
+            drawPowerUps();
+            collisionDetection();
+
+            // 邊界反彈
+            if (ball.x + ball.dx > canvas.width - ball.radius || ball.x + ball.dx < ball.radius) {
+                ball.dx = -ball.dx;
+            }
+            if (ball.y + ball.dy < ball.radius) {
+                ball.dy = -ball.dy;
+            } else if (ball.y + ball.dy > canvas.height - ball.radius) {
+                // 檢查是否碰到球拍
+                if (ball.x > paddle.x && ball.x < paddle.x + paddle.width) {
+                    ball.dy = -ball.dy;
+                } else {
+                    msgEl.innerText = "遊戲結束！重新整理網頁再次挑戰。";
+                    gameOver = true;
+                }
+            }
+
+            ball.x += ball.dx;
+            ball.y += ball.dy;
+
+            requestAnimationFrame(draw); // 持續循環執行
+        }
+
+        // 點擊畫面開始
+        document.body.onclick = () => {
+            if (msgEl.innerText.includes("移動") || msgEl.innerText.includes("點擊")) {
+                msgEl.innerText = "祝你好運！";
+                draw();
+            }
+        };
+
+    </script>
+</body>
+</html>
